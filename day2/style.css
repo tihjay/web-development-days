@@ -1,0 +1,102 @@
+/* Reset */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Base body styles */
+body {
+  font-family: Arial, sans-serif;
+  background: #f9f9f9;
+  color: #333;
+  line-height: 1.6;
+}
+/* Header styles */
+header {
+  background: #004080;   /* deep blue background */
+  color: white;          /* white text */
+  padding: 1em;          /* space around content */
+  text-align: center;    /* center the text */
+}
+header nav {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 0.5em;
+}
+
+header nav a {
+  color: white;
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+header nav a:hover {
+  color: #ffcc00;
+  text-decoration: underline;
+}
+main {
+  max-width: 800px;
+  margin: 2em auto;
+  padding: 1em;
+}
+
+section {
+  background: white;
+  padding: 1em;
+  margin-bottom: 1.5em;
+  border-radius: 6px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1em;
+}
+
+.features li {
+  background: #eef;
+  padding: 1em;
+  border-radius: 4px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: left;
+}
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+}
+
+input, textarea, button {
+  width: 100%;
+  padding: 0.5em;
+}
+
+button {
+  background: #004080;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+button:hover {
+  background: #0066cc;
+}
+@media (max-width: 600px) {
+  header {
+    padding: 0.5em;
+  }
+  header h1 {
+    font-size: 1.2em;
+  }
+}
