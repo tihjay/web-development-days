@@ -1,85 +1,95 @@
 1. Requirements
    Functional Requirements
-   Users can create accounts and log in.
-   Users can browse events and concerts.
-   Users can view available seats for an event.
-   Users can temporarily hold seats before payment.
-   Users can purchase tickets.
-   Users can view their purchased tickets.
-   Event organizers can create and manage events.
-   The system must prevent two users from purchasing the same seat.
-   Non-Functional Requirements
-   Speed
-   Event pages should load in under 1 second.
-   Seat availability should update quickly during sales.
-   Correctness
-   A seat must never be sold twice.
-   Orders and payments must be processed reliably.
-   Ticket ownership records must be accurate.
-   Fairness
-   During popular sales, requests should be processed fairly.
-   A user should not be able to bypass the queue.
-   Seat holds should expire after a short period (e.g., 5 minutes) so abandoned seats return to inventory.
-   Scalability
-   Support normal traffic and large spikes during major ticket releases.
-   Availability
-   Browsing events should remain available even during heavy traffic.
-2. Traffic Estimates
-   Normal Day
+
+TicketHub is a website where users can purchase tickets for concerts and events.
+
+The system must allow users to:
+
+Register and log into an account.
+Browse upcoming events.
+View event details.
+View available seats for an event.
+Temporarily reserve (hold) seats.
+Purchase tickets.
+View purchased tickets.
+Receive confirmation after successful purchase.
+Allow seat holds to expire automatically if payment is not completed.
+Non-Functional Requirements
+Speed
+Event pages should load in under 1 second.
+Seat availability should update in near real time.
+Ticket purchases should complete within a few seconds.
+Correctness
+A seat must never be sold twice.
+Orders must accurately reflect completed purchases.
+Payment failures must not create tickets.
+Fairness
+During a popular sale, users should be processed in the order they enter the queue.
+Users should not be able to bypass the queue.
+Expired seat holds should return seats to inventory.
+Scalability
+The system must handle normal traffic and sudden traffic spikes.
+Additional application servers should be added without redesigning the system.
+Availability
+Users must still be able to browse events even during large sales. 2. Capacity Estimates
+Normal Day
 
 Given:
 
-50,000 visitors/day
-10 page views per visitor
-5,000 ticket purchases/day
-
-Page views:
-
+2,000,000 registered users
+50,000 visitors per day
+Each visitor views 10 pages
+5,000 tickets sold per day
+Page Views
 50,000 × 10 = 500,000 page views/day
 
-Average requests per second:
+Average Read Requests
+500,000 ÷ 86,400 ≈ 5.8 requests/second
 
-500,000 / 86,400 ≈ 5.8 requests/sec
+Ticket Purchases
+5,000 ÷ 86,400 ≈ 0.06 purchases/second
 
-Ticket purchases:
+The normal workload is mostly browsing.
 
-5,000 / 86,400 ≈ 0.06 purchases/sec
-
-Popular Concert Sale
+Big Concert Sale
 
 Given:
 
 200,000 users
 20,000 seats
-First 10 minutes
+First 10 minutes (600 seconds)
+Purchase Attempts
+200,000 ÷ 600 = 333 purchase attempts/second
 
-Seat purchase attempts:
+Seat Availability Requests
 
-200,000 / 600 ≈ 333 purchase attempts/sec
+Assume each user refreshes seat information 5 times:
 
-Possible seat views and refreshes make real traffic much higher, potentially several thousand requests per second.
+200,000 × 5 = 1,000,000 seat requests
+
+1,000,000 ÷ 600 ≈ 1,667 requests/second
 
 Comparison
-Metric Normal Day Big SaleUsers 50,000/day 200,000 in 10 min
-Requests/sec ~6 Hundreds to thousands
-Purchases/sec <1 ~333
+Metric Normal Day Concert On SaleVisitors 50,000/day 200,000/10 min
+Reads/sec 5.8 1,667+
+Purchases/sec 0.06 333
 
-The big sale creates a traffic spike dozens or hundreds of times larger than normal traffic.
+The peak sale generates traffic hundreds of times larger than normal traffic.
 
 3. API Design
-   Get Events
+   Browse Events
    HTTP
    GET /events
 
 Returns all upcoming events.
 
-Get Event Details
+View Event Details
 HTTP
 GET /events/{eventId}
 
 Returns event information.
 
-View Seats
+View Available Seats
 HTTP
 GET /events/{eventId}/seats
 
@@ -93,8 +103,8 @@ Request:
 
 JSON
 {
-"userId": 123,
-"seatId": 456
+"userId": 1,
+"seatId": 150
 }
 
 Creates a temporary seat hold.
@@ -107,17 +117,17 @@ Request:
 
 JSON
 {
-"holdId": 789,
+"holdId": 300,
 "paymentToken": "abc123"
 }
 
-Converts hold into a paid order.
+Creates an order after successful payment.
 
-View User Tickets
+View Purchased Tickets
 HTTP
 GET /users/{userId}/tickets
 
-Returns purchased tickets.
+Returns all purchased tickets.
 
 4. Data Model
    Users
@@ -127,88 +137,123 @@ Returns purchased tickets.
    created_at TIMESTAMP
    Events
    Column Typeevent_id PK
-   title VARCHAR
+   name VARCHAR
    venue VARCHAR
    event_date TIMESTAMP
    Seats
    Column Typeseat_id PK
    event_id FK
    section VARCHAR
-   row VARCHAR
+   row_number VARCHAR
    seat_number VARCHAR
 
 Relationship:
 
-Event 1 → Many Seats
+One Event → Many Seats
+
+Seat_Holds
+Column Typehold_id PK
+user_id FK
+seat_id FK
+expires_at TIMESTAMP
+status VARCHAR
+
+Relationship:
+
+One User → Many Holds
+One Seat → One Active Hold
 
 Orders
 Column Typeorder_id PK
 user_id FK
 seat_id FK
+purchase_time TIMESTAMP
 status VARCHAR
-created_at TIMESTAMP
 
-Relationships:
+Relationship:
 
-User 1 → Many Orders
+One User → Many Orders
+One Seat → One Order
 
-Seat 1 → 0 or 1 Orders
-
-Relationship Diagram
+Entity Relationships
 Plain Text
 Users
-|
-| 1:M
-|
-Orders
-|
-| M:1
-|
+| \
+| \
+| \
+| \
+| \
+v v
+Seat_Holds Orders
+| |
+v v
 Seats
 |
-| M:1
-|
+v
 Events 5. Preventing Double Booking
 
-The most critical requirement is ensuring only one buyer obtains a seat.
+Preventing two people from buying the same seat is the most important requirement of TicketHub.
 
-Approach
-User selects a seat.
-Database transaction begins.
-Seat record is locked.
-System checks whether the seat is available.
-Temporary hold is created.
-User completes payment.
-Order is created.
-Transaction commits.
-Database Constraint
+When a user selects a seat:
 
-Create a unique constraint on seat ownership:
+Begin a database transaction.
+Lock the seat row using row-level locking.
+Verify the seat has not already been sold or held.
+Create a seat hold record.
+Complete payment.
+Convert the hold into an order.
+Commit the transaction.
+
+Example:
+
+SQL
+BEGIN;
+
+ 
+SELECT \*
+FROM seats
+WHERE seat_id = 150
+FOR UPDATE;
+
+ 
+-- Verify seat available
+
+ 
+INSERT INTO seat_holds (...);
+
+ 
+COMMIT;
+
+A unique constraint is also added:
 
 SQL
 UNIQUE(seat_id)
 
-This guarantees a seat can appear in only one completed order.
+on the Orders table.
 
-Result
+If two users attempt to purchase the same seat at the same time:
 
-If two users try to buy the same seat simultaneously:
+The first transaction locks the seat.
+The second transaction must wait.
+After the first buyer succeeds, the second transaction sees the seat is unavailable.
+The purchase is rejected.
 
-One transaction succeeds.
-The other transaction fails.
-Double-booking cannot occur. 6. Architecture Diagram
-Plain Text
-Users
-|
-|
-Load Balancer
-|
+This guarantees that a seat can only be sold once.
+
+6. Architecture Diagram
+   Plain Text
+   Users
+   |
+   |
+   CDN
+   |
+   Load Balancer
+   |
 
 ---
 
 | | |
-Application Application Application
-Server Server Server
+App Server 1 App Server 2 App Server 3
 | | |
 
 ---
@@ -217,53 +262,84 @@ Server Server Server
 Redis
 Cache
 |
-Queue Service
+Sale Queue
 |
+PostgreSQL
 Database
-(PostgreSQL)
-Components
+Component Explanation
+CDN
+
+Stores static files such as images and JavaScript closer to users.
+
 Load Balancer
-Distributes traffic across servers.
-Prevents a single server from becoming overloaded.
+
+Distributes requests across multiple application servers.
+
 Application Servers
-Handle API requests.
-Manage seat holds and purchases.
+
+Handle business logic, authentication, seat holds, and purchases.
+
 Redis Cache
-Stores frequently viewed event and seat data.
-Reduces database load during large sales.
-Queue Service
-Buffers purchase requests.
-Helps maintain fairness during traffic spikes.
-Database
-Stores users, events, seats, holds, and orders.
-Provides transactional guarantees.
-Surviving the Big Sale
-Multiple application servers scale horizontally.
-Redis serves frequent reads.
-Queue smooths sudden spikes.
-Database transactions protect seat inventory. 7. Trade-Offs
+
+Stores frequently requested data:
+
+Event details
+Seat maps
+Popular event pages
+
+This reduces database load during heavy traffic.
+
+Sale Queue
+
+Used during popular ticket launches.
+
+When many users attempt to buy tickets simultaneously:
+
+Requests enter a queue.
+Users are processed fairly.
+The database avoids overload.
+PostgreSQL Database
+
+Stores:
+
+Users
+Events
+Seats
+Holds
+Orders
+
+Provides ACID transactions to guarantee correctness.
+
+How the System Survives the Big Sale
+Redis serves most read requests.
+CDN handles static content.
+Multiple application servers share traffic.
+The queue smooths sudden traffic spikes.
+Database transactions prevent double-booking.
+Expired seat holds automatically release seats back into inventory. 7. Trade-Offs
 Trade-Off 1: Fairness vs Speed
 
-Using a queue improves fairness but adds latency.
+Using a queue improves fairness.
 
-Benefit:
+Advantages:
 
-More equitable purchase process.
+Prevents bots and queue jumping.
+Gives all users a fair chance.
 
-Cost:
+Disadvantages:
 
-Users may wait longer.
+Adds waiting time.
 Trade-Off 2: Strong Consistency vs Performance
 
-Using transactions and locks prevents double-booking.
+Using transactions and row locks guarantees seat correctness.
 
-Benefit:
+Advantages:
 
-Correct seat ownership.
+Prevents double-booking.
 
-Cost:
+Disadvantages:
 
-Slightly slower purchase processing.
+Slightly slower than an eventually consistent design.
 Conclusion
 
-TicketHub uses caching, queues, horizontal scaling, and transactional database protection to support both normal traffic and extremely large ticket-sale events while guaranteeing that no seat can be sold twice
+TicketHub is designed to support normal daily traffic and extremely large concert sales. Redis caching, load balancing, a sale queue, and database transactions provide scalability, fairness, and correctness while ensuring that no seat can ever be sold twice.
