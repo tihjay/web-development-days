@@ -1,0 +1,5 @@
+The most difficult concept in this course was system design estimation. At first, it was challenging to translate business requirements into numbers such as requests per second, traffic spikes, and database load. I overcame this by practicing several examples and breaking each problem into smaller calculations. Once I learned to estimate users, requests, and peak traffic step by step, the process became much easier.
+
+Based on the feedback I received on my capstone project, I would improve the scalability section. My initial design focused mainly on functionality, but the feedback highlighted the importance of explaining how the system behaves under heavy traffic. If I revised the capstone, I would provide more detailed capacity estimates, caching strategies, and failure-handling approaches.
+
+Next, I want to learn more about distributed systems and cloud infrastructure. Topics such as load balancing, message queues, microservices, and database scaling are directly related to the designs created during this course. Developing a deeper understanding of those areas will help me build systems that are both reliable and scalable in real-world environments
